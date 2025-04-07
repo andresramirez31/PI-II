@@ -1,8 +1,10 @@
-<H1>Proyecto Integrador II</H1>  
+# Proyecto Integrador II 
 
-<h2>Modelo de redes neuronales convolucionales (CNN) para la clasificiacion entre audios artificiales y naturales</h2>
+![🗣 Clasificacion_de_audios_naturales_y_artificiales 👂](https://github.com/user-attachments/assets/06a4f43a-0f1a-4ad5-a178-700686ac8990)
+## Modelo usado: 
+Redes neuronales convolucionales <b>(CNN)</b> 
 
-Integrantes:
+### Integrantes:
 <ul>
   <li>Gaia Ramirez Hincapie </li>
   <li>Andres Ramirez Aristizabal</li>
