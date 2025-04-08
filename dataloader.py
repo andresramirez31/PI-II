@@ -11,7 +11,7 @@ WIN_LENGTH = 400
 HOP_LENGTH = 200
 N_FFT = 512
 N_MELS = 65
-DURATION = 4 
+DURATION = 2 
 
 durations = []
 sample_rates = []
