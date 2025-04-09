@@ -96,10 +96,14 @@ class MelSpectrogramDataset(Dataset):
             if self.augment:
                 waveform = self.add_noise(waveform)
                
-
+            #Normalización
+            waveform = waveform / waveform.abs().max()
+           
             mel = self.mel_transform(waveform)
            
             mel_db = self.db_transform(mel)
+            
+            self.before_change(mel_db)
           
             mel_db = self.standardize(mel_db)
           
@@ -128,6 +132,15 @@ class MelSpectrogramDataset(Dataset):
     def apply_codec(self, waveform, sample_rate, format, encoder=None):
         encoder = torchaudio.io.AudioEffector(format=format, encoder=encoder)
         return encoder.apply(waveform, sample_rate)
+    
+    def before_change(self, mel):
+        plt.imshow(mel.squeeze().numpy(), origin='lower', aspect='auto')
+        plt.title("Espectrograma")
+        plt.colorbar()
+        plt.xlabel("Tiempo")
+        plt.ylabel("Frecuencia Mel")
+        plt.tight_layout()
+        plt.show()
 
 
 dataset = MelSpectrogramDataset(data[:10], augment=True)
