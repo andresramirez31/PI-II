@@ -21,7 +21,7 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install torchau
 pip install torchaudio
 ```
 
-## Usage
+## Uso
 
 ```python
 dataset[0] 
