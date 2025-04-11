@@ -12,3 +12,24 @@ Redes neuronales convolucionales **(CNN)**
   <li>Gaia Ramirez Hincapie </li>
   <li>Andres Ramirez Aristizabal</li>
 </ul>
+
+## Instalacion
+
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install torchaudio.
+
+```bash
+pip install torchaudio
+```
+
+## Usage
+
+```python
+dataset[0] 
+
+# returns spectrogram images
+dataset[0] 
+
+# returns image 7
+dataset[7] 
+
+
