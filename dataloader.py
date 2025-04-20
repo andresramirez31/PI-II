@@ -9,11 +9,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import glob
 import random
+from torch.utils.data import DataLoader
+from sklearn.model_selection import train_test_split
 
 
+#Seccion para la division entre train y test de los archivos de audio
+df = pd.read_csv(r"C:\Users\esteb\OneDrive\Desktop\Proyectos programacion\PI II\data\outputA\resultados.csv")
+train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
 
+train_df.to_csv("train.csv", index=False)
+test_df.to_csv("test.csv", index=False)
 
-
+#Datos fijos predefinidos para el manejo de transformaciones de las waveform al espectrograma
 PTT = 400 
 SAMPLE_RATE = 16000
 WIN_LENGTH = 400
@@ -27,6 +34,7 @@ sample_rates = []
 espectrogramas = []
 i = 0
 
+#Funcion que recolecta los paths validos de archivos de audio
 def collect_valid_flac_paths(root_dir, limit=None):
     good_paths = []
     bad_paths = []
@@ -47,11 +55,15 @@ def collect_valid_flac_paths(root_dir, limit=None):
                     bad_paths.append((path, str(e)))
     return good_paths
 
-data = collect_valid_flac_paths(r"C:\Users\esteb\OneDrive\Desktop\Proyectos programacion\PI II\ASVspoof2021_LA_eval\ASVspoof2021_LA_eval\flac", limit=50)
+#data = collect_valid_flac_paths(r"C:\Users\esteb\OneDrive\Desktop\Proyectos programacion\PI II\ASVspoof2021_LA_eval\ASVspoof2021_LA_eval\flac", limit=40000)
+
+#Codigo para clase creada que maneja Espectrogramas Mel
 class MelSpectrogramDataset(Dataset):
     
-    def __init__(self, data, duration=5.0, sr=16000, augment=True):
-        self.data = data
+    
+    def __init__(self, csv_path, audios="audio", duration=5.0, sr=16000, augment=True):
+        self.data = pd.read_csv(csv_path)
+        self.audio_paths = self.data[audios].tolist()
         self.duration = duration
         self.sr = sr
         self.augment = augment
@@ -65,13 +77,14 @@ class MelSpectrogramDataset(Dataset):
         self.db_transform = torchaudio.transforms.AmplitudeToDB(top_db=80)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.audio_paths)
 
     def __getitem__(self, idx):
-        path = self.data[idx]
+        path = self.audio_paths[idx]
         
         try:
-            waveform, sr = torchaudio.load(path)
+            y, sr = librosa.load(path, sr=16000)
+            waveform = torch.tensor(y).unsqueeze(0)
            
             if waveform.shape[0] > 1:
                 waveform = waveform.mean(dim=0, keepdim=True)
@@ -94,7 +107,7 @@ class MelSpectrogramDataset(Dataset):
                
 
             if self.augment:
-                waveform = self.add_noise(waveform)
+                waveform = self.augmentation(waveform)
                
             #Normalización
             waveform = waveform / waveform.abs().max()
@@ -102,8 +115,6 @@ class MelSpectrogramDataset(Dataset):
             mel = self.mel_transform(waveform)
            
             mel_db = self.db_transform(mel)
-            
-            self.before_change(mel_db)
           
             mel_db = self.standardize(mel_db)
           
@@ -113,26 +124,32 @@ class MelSpectrogramDataset(Dataset):
             print(f"[ERROR cargando {path}] {e}")
             return torch.zeros(1, 64, int(self.sr * self.duration / 160)) 
 
+    #Funcion para aplicar transformaciones de data augmentation al waveform
     def augmentation(self, waveform):
-        augmentations = [self.add_noise, self.vorbis_effect]
+        augmentations = [self.add_noise, self.change_volume]
         aug = random.choice(augmentations)
         waveform = aug(waveform)
-            
+        return waveform
+    
+    #Funcion de transformacion de añadir ruido background        
     def add_noise(self, waveform, noise_level=0.005):
         noise = torch.randn_like(waveform)
         return waveform + noise_level * noise
 
+    #Funcion de estandarizacion
     def standardize(self, spec):
         return (spec - spec.mean()) / (spec.std() + 1e-9)
     
-    def vorbis_effect(self, waveform):
-        waveform = self.apply_codec(waveform, self.sr, "ogg", encoder="vorbis")
-        return waveform
+    #Fucnion de transformación cambiando el volumen del audio
+    def change_volume(self, waveform, gain_db=5.0):
+        factor = 10 ** (gain_db / 20)
+        return waveform * factor
     
     def apply_codec(self, waveform, sample_rate, format, encoder=None):
         encoder = torchaudio.io.AudioEffector(format=format, encoder=encoder)
         return encoder.apply(waveform, sample_rate)
     
+    #Generador de grafica del espectrograma antes de la estandarizacion
     def before_change(self, mel):
         plt.imshow(mel.squeeze().numpy(), origin='lower', aspect='auto')
         plt.title("Espectrograma")
@@ -142,13 +159,15 @@ class MelSpectrogramDataset(Dataset):
         plt.tight_layout()
         plt.show()
 
+#Instanciacion de los dataset train y test
+train_dataset = MelSpectrogramDataset(csv_path="train.csv", augment=True)
+test_dataset = MelSpectrogramDataset(csv_path="test.csv", augment=True)
 
-dataset = MelSpectrogramDataset(data[:10], augment=True)
+subset = torch.utils.data.Subset(train_dataset, list(range(5000)))
 
-subset = torch.utils.data.Subset(dataset, list(range(5)))
+mel = subset[3] 
 
-mel = subset[0] 
-
+#Generador de grafica del espectrograma despues de la estandarizacion
 plt.imshow(mel.squeeze().numpy(), origin='lower', aspect='auto')
 plt.title("Espectrograma")
 plt.colorbar()
@@ -157,10 +176,24 @@ plt.ylabel("Frecuencia Mel")
 plt.tight_layout()
 plt.show()
 
+#Impresion de datos importantes generales para analisis promedio de los audios
 print(f"Min: {mel.min().item():.2f}")
 print(f"Max: {mel.max().item():.2f}")
 print(f"Mean: {mel.mean().item():.2f}")
 print(f"Std:  {mel.std().item():.2f}")
+
+#Instanciacion de los dataloaders train y test
+train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=32, shuffle=True)
+
+# Ejemplo iterando
+for audio in train_dataloader:
+    print(audio.shape)  # (32, 3, 224, 224)
+    break
+
+for audio in test_dataloader:
+    print(audio.shape)  # (32, 3, 224, 224)
+    break
 
 
 
