@@ -18,14 +18,21 @@ class SpectrogramCNN(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)                      # Mitad: (B, 6, 30, (T-4)//2)
         self.conv2 = nn.Conv2d(6, 16, kernel_size=5)        # (B, 16, 26, ...)
         
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, 64, 500)  # forma real aproximada
+            dummy = self.pool(F.relu(self.conv1(dummy)))
+            dummy = self.pool(F.relu(self.conv2(dummy)))
+            self.flattened_size = dummy.view(1, -1).shape[1]
+                
         
-        self.fc1 = nn.Linear(16 * 13 * 122, 120)
+        self.fc1 = nn.Linear(20176, 120)
         self.fc2 = nn.Linear(120, num_classes)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))  # Conv1 → ReLU → Pool
         x = self.pool(F.relu(self.conv2(x)))  # Conv2 → ReLU → Pool
         x = torch.flatten(x, 1)               # Aplanar todo excepto batch
+        print(x.shape)
         x = F.relu(self.fc1(x))               # Linear → ReLU
         x = self.fc2(x)                       # Output
         return x
