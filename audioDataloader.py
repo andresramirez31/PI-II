@@ -45,7 +45,7 @@ class MelSpectrogramDataset(Dataset):
                 encoder = LabelEncoder()
                 self.data[col] = encoder.fit_transform(self.data[col].astype(str))
                 self.encoders[col] = encoder
-            self.labels = self.data[self.label_columns].astype('int64')
+            self.labels = self.data["etiqueta"].astype('float32').tolist()
         else:
             self.labels = None
 
@@ -90,7 +90,7 @@ class MelSpectrogramDataset(Dataset):
             if self.augment:
                 waveform = self.augmentation(waveform)
                
-            label = self.labels.iloc[idx].values if self.labels is not None else None
+            label = self.labels[idx] if self.labels is not None else None
             #Normalización
             waveform = waveform / waveform.abs().max()
            
@@ -101,8 +101,7 @@ class MelSpectrogramDataset(Dataset):
             mel_db = self.standardize(mel_db)
           
             if self.labels is not None:
-                label = self.labels.iloc[idx].values.astype(int)  # Garantizamos que son int
-                label = torch.tensor(label, dtype=torch.long)
+                label = torch.tensor([self.labels[idx]], dtype=torch.float32)
                 
             else:
                 label = torch.tensor([-1])
@@ -159,11 +158,14 @@ def train_test_division(resultados_path):
 
 def dataloaders(train_csv="train.csv", test_csv="test.csv", batch_size=32):
 #Instanciacion de los dataset train y test
-    train_dataset = MelSpectrogramDataset(csv_path=train_csv, label_columns=["etiqueta", "nombre"], augment=True)
-    test_dataset = MelSpectrogramDataset(csv_path=test_csv, label_columns=["etiqueta", "nombre"], augment=True)
+    train_dataset = MelSpectrogramDataset(csv_path=train_csv, label_columns=["etiqueta"], augment=True)
+    test_dataset = MelSpectrogramDataset(csv_path=test_csv, label_columns=["etiqueta"], augment=True)
     
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    test_dataloader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    subsetT_dataset = torch.utils.data.Subset(train_dataset, indices=range(100))
+    subsetV_dataset = torch.utils.data.Subset(test_dataset, indices=range(100))
+    
+    train_dataloader = DataLoader(subsetT_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    test_dataloader  = DataLoader(subsetV_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     
     return train_dataloader, test_dataloader, train_dataset, test_dataset
 
